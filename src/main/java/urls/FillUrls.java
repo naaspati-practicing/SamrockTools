@@ -105,7 +105,6 @@ public class FillUrls {
 
         Iterator<Row> it = tsv.iterator();
         while (it.hasNext()) {
-        	System.out.println("here");
             Row row = it.next();
 
             String f = fox.get(row);

@@ -39,6 +39,7 @@ import sam.tsv.Column;
 import sam.tsv.Tsv;
 
 
+@Deprecated
 public class FinalizeMangarock {
 	List<Integer> mangaids;
 

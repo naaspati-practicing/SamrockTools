@@ -60,7 +60,7 @@ import sam.tsv.Tsv;
 import samrock.BuIdTools;
 import samrock.ChangeMangaIds;
 import samrock.CheckMangaFolder;
-import samrock.FinalizeMangarock;
+import samrock.FinalizeMangarockNew;
 import samrock.ResetChapters;
 import urls.ExtractUrls;
 import urls.FillUrls;
@@ -188,7 +188,7 @@ public class Main  {
 		else if(clean)
 			clean();
 		else if(finalizeMangarock)
-			new FinalizeMangarock();
+			new FinalizeMangarockNew().run();
 		else if(last_sync   )
 			lastSyncSort();
 		else if(resetChapter)
