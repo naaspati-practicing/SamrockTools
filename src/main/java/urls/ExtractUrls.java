@@ -17,6 +17,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,7 +38,9 @@ import javax.swing.UIManager;
 
 import org.jsoup.Jsoup;
 
+import sam.collection.Iterables;
 import sam.console.ANSI;
+import sam.console.VT100;
 import sam.manga.samrock.SamrockDB;
 import sam.manga.samrock.urls.MangaUrlsUtils;
 import sam.manga.samrock.urls.MangaUrlsUtils.MangaUrl;
@@ -166,19 +169,19 @@ public class ExtractUrls {
 			try {
 				if(returnFalse)
 					return false;
-				
+
 				JDialog dialog = new JDialog((JFrame)null, "enter url", true);
 				dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
 				dialog.setLayout(new GridBagLayout());
 				dialog.setModalityType(ModalityType.APPLICATION_MODAL);
-				
+
 				Font font = new Font("Consolas", Font.PLAIN, 20);
 				UIManager.put("Label.font", font);
 				UIManager.put("TextField.font", font);
-				
+
 				GridBagConstraints g = new GridBagConstraints();
 				g.insets = new Insets(5, 5, 5, 5);
-				
+
 				g.gridx = 0;
 				g.gridy = 0;
 				g.anchor = GridBagConstraints.NORTHWEST;
@@ -189,17 +192,17 @@ public class ExtractUrls {
 				g.gridy = 1;
 				g.gridwidth = 1;
 				dialog.add(new JLabel("Fanfox"), g);
-				
+
 				g.gridx = 0;
 				g.gridy = 2;
 				dialog.add(new JLabel("mangaHere"), g);
-				
+
 				g.gridx = 1;
 				g.gridy = 1;
 				g.fill = GridBagConstraints.HORIZONTAL;
 				g.gridwidth = GridBagConstraints.REMAINDER;
 				g.weightx = 1;
-				
+
 				JTextField fanfox = new JTextField();
 				dialog.add(fanfox, g);
 
@@ -212,9 +215,9 @@ public class ExtractUrls {
 				g.anchor = GridBagConstraints.SOUTHEAST;
 				g.fill = GridBagConstraints.NONE;
 				g.weightx = 0;
-				
+
 				String[] result = {null, null};
-				
+
 				JButton ok = new JButton("OK");
 				dialog.add(ok, g);
 				ok.addActionListener(e -> {
@@ -222,7 +225,7 @@ public class ExtractUrls {
 					result[1] = mangahere.getText();
 					dialog.setVisible(false);
 				});
-				
+
 				dialog.setSize(600, 200);
 				dialog.setLocationRelativeTo(null);
 				dialog.setResizable(false);
@@ -232,7 +235,7 @@ public class ExtractUrls {
 					result[1] = null;
 					fanfox.setText(fox.get(row));
 					mangahere.setText(here.get(row));
-					
+
 					String name = manga_name.get(row);
 					title.setText(name);
 					SwingClipboard.setString(name);
@@ -252,11 +255,11 @@ public class ExtractUrls {
 
 		return true;
 	}
-	
+
 	private class Urls {
 		private final Map<String, String> original;
 		private final Map<String, String> laveraged;
-		
+
 		public Urls() {
 			original = Collections.emptyMap();
 			laveraged = Collections.emptyMap();
@@ -272,11 +275,11 @@ public class ExtractUrls {
 			}
 		}
 	}
-	
+
 	private StringBuilder sb = new StringBuilder();
 	private String laveraged(String s) {
 		sb.setLength(0);
-		
+
 		for (int i = 0; i < s.length(); i++) {
 			char c = s.charAt(i);
 			if(Character.isAlphabetic(c) || (c >= '0' && c <= '9')) 
@@ -284,29 +287,34 @@ public class ExtractUrls {
 		}
 		return sb.toString();
 	}
-	
+
 	private Urls mangahere;
-	private Urls mangahere() {
+	private Urls mangahere(Iterable<String> names) {
 		if(mangahere != null)
 			return mangahere;
-		try {
-			Map<String, String>  map = new HashMap<>();
-			String url = "http://www.mangahere.cc/mangalist/";
-			System.out.println(ANSI.yellow("scrapping: ")+url);
-			
-			Jsoup.parse(new URL(url), 60000)
-			.getElementsByTag("a")
-			.forEach(e -> {
-				if("manga_info".equals(e.className())) {
-					String s = e.attr("href");
-					map.put(e.text(), s.startsWith("//") ? "http:".concat(s) : s);
-				}
-			});
-			mangahere = new Urls(map);
-		} catch (IOException e) {
-			e.printStackTrace();
-			mangahere = new Urls();
+		Map<String, String>  map = new HashMap<>();
+		VT100.save_cursor();
+
+		for (String name : names) {
+			try {
+				String url  = "http://www.mangahere.cc/search?title=".concat(URLEncoder.encode(name, "utf-8"));
+				VT100.unsave_cursor();
+				VT100.erase_down();
+				System.out.println(ANSI.yellow("searching: ")+url);
+				Jsoup.parse(new URL(url), 60000)
+				.getElementsByTag("a")
+				.forEach(e -> {
+					String href = e.attr("href"); 
+					if(href.startsWith("/manga/")) 
+						map.computeIfAbsent(e.attr("title"), ss -> "http://www.mangahere.cc".concat(href));
+				});
+			} catch (Exception e) {
+				System.out.println(ANSI.red("failed: ")+e);
+				VT100.save_cursor();		
+			}				
 		}
+
+		mangahere = new Urls(map);
 		return mangahere;
 	} 
 
@@ -317,19 +325,19 @@ public class ExtractUrls {
 				Tsv  tsv = Tsv.parse(p);
 				tsv.addColumnIfAbsent(MANGAFOX);
 				tsv.addColumnIfAbsent(MANGAHERE);
-				
-				Urls urls = mangahere();
+
 				Column mangahereC = tsv.getColumn(MANGAHERE);
 				Column nameC = tsv.getColumn(MANGA_NAME);
-				
+				Urls urls = mangahere(Iterables.map(tsv, nameC::get));
+
 				tsv.forEach(r -> {
 					String s = mangahereC.get(r);
 					if(!Checker.isEmptyTrimmed(s))
 						return;
-					
+
 					String name = nameC.get(r);
 					s = urls.original.get(name);
-					
+
 					if(s != null) {
 						System.out.println(ANSI.yellow("name: ")+name+ANSI.yellow(",  url: ")+s);
 						mangahereC.set(r, s);
@@ -337,7 +345,7 @@ public class ExtractUrls {
 					} else {
 						String name2 = laveraged(name);
 						s = urls.laveraged.get(name2);
-						
+
 						if(s != null) {
 							System.out.println(ANSI.yellow("name: ")+name + ANSI.yellow(" ("+name2+")")+ANSI.yellow(",  url: ")+s);
 							mangahereC.set(r, s);
@@ -346,7 +354,7 @@ public class ExtractUrls {
 					}
 					System.out.println(ANSI.red("not found: ")+name);
 				});
-				
+
 				return tsv;
 			} catch (IOException e) {
 				System.out.println("failed parsing: "+path+"\tError: "+e);
