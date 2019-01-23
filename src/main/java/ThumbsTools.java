@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -55,6 +54,7 @@ import org.jsoup.select.Elements;
 //import com.jaunt.UserAgent;
 
 import sam.config.Session;
+import sam.console.ANSI;
 import sam.internetutils.InternetUtils;
 import sam.io.fileutils.FileOpenerNE;
 import sam.io.serilizers.ObjectReader;
@@ -64,9 +64,11 @@ import sam.manga.samrock.mangas.MangaUtils;
 import sam.manga.samrock.mangas.MangasMeta;
 import sam.manga.samrock.thumb.ThumbUtils;
 import sam.manga.samrock.thumb.ThumbUtils.ExtraAndMissing;
+import sam.manga.samrock.urls.MangaUrlsMeta;
 import sam.manga.samrock.urls.MangaUrlsUtils;
 import sam.manga.samrock.urls.MangaUrlsUtils.MangaUrl;
-import sam.swing.MyProgressMonitor;
+import sam.myutils.Checker;
+import sam.myutils.MyUtilsException;
 import sam.tsv.Row;
 import sam.tsv.Tsv;
 import utils.Utils;
@@ -75,15 +77,30 @@ public class ThumbsTools {
     private static final Session SESSION = Session.getSession(ThumbsTools.class);
 
     final File THUMBS_DIR = new File(SAMROCK_THUMBS_DIR);
+    private InternetUtils internetUtils;
+    private Path tempDir ;
+    private Map<String, String> selectors;
 
-    void downloadMissingThumbs(){
+    void downloadMissingThumbs() throws IOException {
+    	selectors =  new HashMap<>();
+    	Files.lines(Utils.APP_DATA.resolve("ThumbsTools.selector.txt"))
+    			.forEach(s -> {
+    				if(s.isEmpty() || s.charAt(0) == '#')
+    					return;
+    				
+    				int n = s.indexOf('\t');
+    				if(n < 0)
+    					System.out.println(ANSI.red("invalid selector line: ")+s);
+    				else 
+    					selectors.put(s.substring(0, n), s.substring(n+1));
+    			});
         List<MissingThumb> missing = listMissingThumbs();
 
         if(missing == null || missing.isEmpty()){
             System.out.println("nothing to download");
             return;
         }
-        Path tempDir  = Paths.get("downloaded_thumbs");
+        tempDir  = Paths.get("downloaded_thumbs");
 
         try {
             Files.createDirectories(tempDir);
@@ -92,112 +109,77 @@ public class ThumbsTools {
             return;
         }
 
-        MyProgressMonitor progressBar = new MyProgressMonitor("downloading missing thumbs",  0, missing.size());
-        progressBar.setVisible(true);
-        progressBar.setOnClosing(w -> System.exit(0));
-
-        String bakaStart = "https://www.mangaupdates.com/series.html?id=";
+       // String bakaStart = "https://www.mangaupdates.com/series.html?id=";
         System.out.println("\n");
         
-        String format = "%-10s%-10s%s\r\n";
-        
-        InternetUtils internetUtils = new InternetUtils();
+        internetUtils = new InternetUtils();
 
         for (MissingThumb m : missing) {
-            progressBar.setString(m.manga_name);
-            String mangafoxUrl = Optional.ofNullable(m.url).map(MangaUrl::getMangafoxUrl).orElse(null);
-
             int number = 1;
-            System.out.print(yellow(String.format(format, "manga_id", "bu_id", "manga_name")));
-
-            if(mangafoxUrl == null || mangafoxUrl.trim().isEmpty())
-                System.out.println(red("mangafox: null -> Failed"));
-            else{
-                try {
-                    System.out.println("mangafox: ".concat(mangafoxUrl));
-                    Document doc = Jsoup.parse(new URL(mangafoxUrl), 60*2000);
-                    Elements els = doc.getElementsByClass("cover");
-
-                    if(els.size() == 0)
-                        System.out.println(red("\tcount = 0"));
-                    else {
-                        if(els.size() > 1)
-                            System.out.println("\t"+red("count > 1, count = "+els.size()));
-
-                        for (Element element : els) {
-                            String url = element.getElementsByTag("img").get(0).absUrl("src");
-                            Path savePath = tempDir.resolve(m.manga_id+"_"+String.valueOf(number++)+".jpg");
-
-                            while(Files.exists(savePath))
-                                savePath = tempDir.resolve(m.manga_id+"_"+String.valueOf(number++)+".jpg");
-
-                            try {
-                                Path src = internetUtils.download(new URL(url));
-                                Files.move(src, savePath, StandardCopyOption.REPLACE_EXISTING);
-                                System.out.println("\t"+green("success: ")+savePath);
-                            } catch (IOException e2) {
-                                System.out.println("  "+red("Failed: "));
-                                System.out.println("\tsavePath: "+savePath);
-                                System.out.println("\turl: "+url);
-                                System.out.println("\tError: "+e2);
-                                System.out.println();
-                            }
-                        }
-                    }
-                } catch (IOException e) {
-                    System.out.println("mangafox: "+red("Failed\t")+e);
-                }
-            }
-            if(m.bu_id < 0)
-                System.out.println(red("bakaupdate: Failed\tbu_id = "+m.bu_id));
-            else{
-                try {
-                    System.out.println("bakaupdate: ".concat(bakaStart+m.bu_id));
-                    Document doc = Jsoup.parse(new URL(bakaStart+m.bu_id), 60*1000);
-
-                    Elements els = doc.select("img[src~=https://www.mangaupdates.com/image/]");
-
-                    if(els.size() == 0)
-                        System.out.println("\t"+red("count = 0"));
-                    else {
-                        if(els.size() > 1)
-                            System.out.println("\t"+red("count > 1, count = "+els.size()));
-
-                        for (Element element : els) {
-                            String url = element.attr("src");
-                            Path savePath = tempDir.resolve(m.manga_id+"_"+String.valueOf(number++)+".jpg");
-
-                            while(Files.exists(savePath))
-                                savePath = tempDir.resolve(m.manga_id+"_"+String.valueOf(number++)+".jpg");
-
-                            try {
-                                Path src = internetUtils.download(new URL(url));
-                                Files.move(src, savePath, StandardCopyOption.REPLACE_EXISTING);
-                                System.out.println("\t"+green("success")+",  "+savePath);
-                            } catch (IOException e2) {
-                                System.out.println("  "+red("Failed: "));
-                                System.out.println("\tsavePath: "+savePath);
-                                System.out.println("\turl: "+url);
-                                System.out.println("\tError: "+e2);
-                                System.out.println();
-                            }
-                        }
-                    }
-                } catch (IOException e) {
-                    System.out.println("\t"+red("Failed\t")+e);
-                }
-            }
-            progressBar.increaseBy1();
+            System.out.println(m.manga_id+" "+ANSI.cyan(m.manga_name));
+            number = download(m, MangaUrlsMeta.MANGAFOX, number);
+            number = download(m, MangaUrlsMeta.MANGAHERE, number);
         }
-        progressBar.setCompleted();
         FileOpenerNE.openFileLocationInExplorer(tempDir.toFile());
     }
     
-    class MissingThumb {
-        final int manga_id;
-        final int bu_id;
-        final String manga_name;
-        final MangaUrl url;
+    
+    private int download(MissingThumb m, String column, int number) {
+    	System.out.println("  "+ANSI.yellow(column));
+    	if(m.url == null) {
+    		System.out.println(red("    m.url: null -> Failed"));
+    		return number;
+    	}
+    	String url = m.url.getUrl(column);
+        String selector = selectors.get(column);
+    	
+    	if(Checker.isEmptyTrimmed(url))
+            System.out.println(red("    url: null -> Failed"));
+        else if(Checker.isEmptyTrimmed(selector)) {
+        	 System.out.println(red("    selector: null -> Failed"));
+        } else {
+            try {
+                System.out.println("    ".concat(url));
+                Document doc = Jsoup.parse(new URL(url), 60*2000);
+                Elements els = doc.select(selector);
+
+                if(els.isEmpty())
+                    System.out.println(red("    count = 0"));
+                else {
+                    if(els.size() > 1)
+                        System.out.println("    "+red("count > 1, count = "+els.size()));
+
+                    for (Element element : els) {
+                        String img = element.absUrl("src");
+                        Path savePath = tempDir.resolve(m.manga_id+"_"+String.valueOf(number++)+".jpg");
+
+                        while(Files.exists(savePath))
+                            savePath = tempDir.resolve(m.manga_id+"_"+String.valueOf(number++)+".jpg");
+
+                        try {
+                            Path src = internetUtils.download(img);
+                            Files.move(src, savePath, StandardCopyOption.REPLACE_EXISTING);
+                            System.out.println(green("    success: ")+savePath);
+                        } catch (IOException e2) {
+                            System.out.println(red("    Failed: "));
+                            System.out.println("    savePath: "+savePath);
+                            System.out.println("    url: "+img);
+                            System.out.println("    Error: "+e2);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println(red("  Failed: ")+MyUtilsException.exceptionToString(e));
+            }
+        }
+    	return number;
+	}
+
+	public static class MissingThumb {
+    	public final int manga_id;
+    	public final int bu_id;
+    	public final String manga_name;
+    	public final MangaUrl url;
 
         public MissingThumb(ResultSet rs, MangaUrl url) throws SQLException {
             this.manga_id = rs.getInt(MangasMeta.MANGA_ID);
@@ -224,9 +206,7 @@ public class ThumbsTools {
             }
             else{
                 List<MissingThumb> list = new ArrayList<>();
-                
                 Map<Integer, MangaUrl> map = new MangaUrlsUtils(samrock).getMangaUrls(em.getMissingThumbMangaIds()).stream().collect(Collectors.toMap(MangaUrl::getMangaId, m -> m));
-                
                 manga.select(em.getMissingThumbMangaIds(), rs -> list.add(new MissingThumb(rs, map.get(rs.getInt(MangasMeta.MANGA_ID)))), MangasMeta.MANGA_ID, MangasMeta.BU_ID, MangasMeta.MANGA_NAME);
                 
                 System.out.println(red("missing thumbs\t")+green("count: ")+list.size());
