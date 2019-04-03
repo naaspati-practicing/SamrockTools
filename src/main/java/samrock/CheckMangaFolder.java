@@ -109,7 +109,7 @@ public class CheckMangaFolder {
                     tsv.save(path);
                     System.out.println(green("chapters.tsv created"));
                 } catch (IOException e) {
-                    System.out.println(red("failed to save: chapters.tsv")+MyUtilsException.exceptionToString(e));
+                    System.out.println(red("failed to save: chapters.tsv")+MyUtilsException.toString(e));
                 }
             }
         } catch (SQLException   e) {

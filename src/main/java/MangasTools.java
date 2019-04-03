@@ -306,7 +306,7 @@ public class MangasTools  {
 			return false;
 		}
 
-		StringWriter2.appendTextAtBegining(Utils.APP_DATA.resolve("-amf.log"), maxOldTime+"\n");
+		StringWriter2.appendText(Utils.APP_DATA.resolve("-amf.log"), maxOldTime+"\n");
 
 		try (SamrockDB samrock = new SamrockDB();
 				SQLiteDB mangarock = new SQLiteDB(MANGAROCK_INPUT_DB);) {

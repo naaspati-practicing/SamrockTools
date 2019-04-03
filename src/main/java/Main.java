@@ -19,7 +19,6 @@ import java.awt.datatransfer.Transferable;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -48,6 +47,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.sqlite.JDBC;
 
+import javafx.application.Application;
 import mangarock.AnalyzeMangaRockFavorites;
 import mangarock.RemoveRepeatedFromMangarockFavorites;
 import mangarock.UpdateWithLastSync;
@@ -57,6 +57,7 @@ import sam.myutils.System2;
 import sam.string.StringUtils;
 import sam.tsv.Column;
 import sam.tsv.Tsv;
+import samrock.AddNewManga;
 import samrock.BuIdTools;
 import samrock.ChangeMangaIds;
 import samrock.CheckMangaFolder;
@@ -107,6 +108,7 @@ public class Main  {
 		boolean update_with_last_sync;
 
 		boolean remove_repeated_favorites;
+		boolean add_new_manga;
 
 	List<String> mangaIds = new ArrayList<>();
 
@@ -123,6 +125,7 @@ public class Main  {
 		}
 
 		Utils.init() ;
+		boolean exit = true;
 
 		if(checkFoldersNotConverted)
 			new CheckMangaFolder().checkFoldersNotConverted();
@@ -170,7 +173,6 @@ public class Main  {
 			data.addRow(buid, manga_id);
 			new ThumbsTools().downloadThumbsFromBuid(data);
 		}
-
 		else if(createMissingBuIdList)
 			new BuIdTools().createMissingBuIdList();
 		else if(fillBuIds)
@@ -199,12 +201,19 @@ public class Main  {
 			new UpdateWithLastSync();
 		else if(remove_repeated_favorites)
 			new RemoveRepeatedFromMangarockFavorites();
+		else if(add_new_manga) {
+			Application.launch(AddNewManga.class, new String[0]);
+			exit = false;
+		} 
 		else {
 			System.out.println(red("failed to reconize command: ")+Arrays.toString(args2));
 			return;
 		}
-		System.out.println("\n"+FINISHED_BANNER);
-		System.exit(0);
+		if(exit) {
+			System.out.println("\n"+FINISHED_BANNER);
+			System.exit(0);
+		}
+		
 	}
 	private void printHelp() {
 		String[][] help = {
@@ -234,8 +243,10 @@ public class Main  {
 				{"-rc, --reset-chapter[manga_id,...]", "recent chapters of given manga_id(s)"},
 				{"-cmi, --change-manga-ids", "change mangaIds"},
 				{"-update, --update-with-last-sync", "set samrock.mangas.last_update_time = max(mangarock.favorites.last_sync, samrock.mangas.last_update_time)"},
-				{"-rrf, --remove-repeated-favorites", "remove mangas repeated in favorites"}
+				{"-rrf, --remove-repeated-favorites", "remove mangas repeated in favorites"},
+				{"--add-new-manga", "add new manga manually"}
 		};
+		
 		System.out.println();
 		String format = ANSI.yellow("%s\n    ")+"%s\n";
 		for (String[] s : help) 
@@ -327,6 +338,7 @@ public class Main  {
 
 			case "-rrf": this.remove_repeated_favorites = true; break;
 			case "--remove-repeated-favorites": this.remove_repeated_favorites = true; break;
+			case "--add-new-manga": this.add_new_manga = true; break;
 
 			default: mangaIds.add(key); break;
 		}
@@ -458,7 +470,7 @@ public class Main  {
 			Set<String> checkedUrls = Files.exists(bakaCheckedUrlsPath) ? Files.lines(bakaCheckedUrlsPath).collect(Collectors.toSet()) : new HashSet<>();
 
 			if(Files.exists(bakaMangaNameBuidPath)){
-				Tsv exitingNameBuid = Tsv.builder().charset(StandardCharsets.UTF_8).parse(bakaMangaNameBuidPath);
+				Tsv exitingNameBuid = Tsv.parse(bakaMangaNameBuidPath);
 
 				if(addAll)
 					bakaNameid.merge(exitingNameBuid, true);

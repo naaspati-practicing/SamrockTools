@@ -11,7 +11,7 @@ dependencies {
     compile files('myutils.jar')
 }
 
-version = '1.11'
+version = '1.15'
 sourceCompatibility = JavaVersion.VERSION_1_8 
 targetCompatibility = JavaVersion.VERSION_1_8
 

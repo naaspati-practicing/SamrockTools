@@ -169,7 +169,7 @@ public class ThumbsTools {
                     }
                 }
             } catch (IOException e) {
-                System.out.println(red("  Failed: ")+MyUtilsException.exceptionToString(e));
+                System.out.println(red("  Failed: ")+MyUtilsException.toString(e));
             }
         }
     	return number;

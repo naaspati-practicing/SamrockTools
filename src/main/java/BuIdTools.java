@@ -46,8 +46,7 @@ public class BuIdTools {
         Tsv buNameIdTable = null; 
 
         try {
-        	Tsv.builder();
-            buNameIdTable = Tsv.builder().parse(bakaMangaNameBuidPath);
+            buNameIdTable = Tsv.parse(bakaMangaNameBuidPath);
             Column columnNumber = buNameIdTable.getColumn("bu_manga_name"); 
             buNameIdTable.forEach(row -> columnNumber.set(row, columnNumber.get(row).toLowerCase()));
         } catch (IOException e) {
@@ -89,7 +88,7 @@ public class BuIdTools {
         BUID[] buids;
 
         try {
-            Tsv data =  Tsv.parse(file.toPath());
+            Tsv data = Tsv.parse(file.toPath());
 
             boolean b1, b2;
             if(b1 = !data.containsColumn(BU_ID))
