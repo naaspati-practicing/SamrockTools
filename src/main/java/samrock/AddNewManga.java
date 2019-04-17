@@ -13,6 +13,8 @@ import static sam.manga.mangarock.MangarockMangaMeta.STATUS;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.concurrent.Callable;
 
 import javafx.application.Application;
@@ -43,6 +45,7 @@ import sam.manga.samrock.Renamer;
 import sam.manga.samrock.SamrockDB;
 import sam.manga.samrock.mangas.MangasMeta;
 import sam.manga.samrock.urls.MangaUrlsMeta;
+import sam.manga.samrock.urls.nnew.MangaUrlsUtils;
 import sam.myutils.Checker;
 import sam.myutils.MyUtilsException;
 import sam.sql.JDBCHelper;
@@ -54,6 +57,7 @@ public class AddNewManga extends Application {
 	private final TextField author = tf();
 	private final TextField categories = tf();
 	private final TextField url = tf();
+	private final TextField mangakakalot = tf();
 	private final TextField rank = tf();
 	private final Text status = new Text();
 	private final TextArea description = new TextArea();
@@ -83,7 +87,8 @@ public class AddNewManga extends Application {
 		grid.addRow(row++, text("categories"), categories);
 		grid.addRow(row++, text("rank"), rank);
 		grid.addRow(row++, text("status"), status);
-		grid.addRow(row++, text("url"), url);
+		grid.addRow(row++, text("mangafox"), url);
+		grid.addRow(row++, text("mangakakalot"), mangakakalot);
 		grid.addRow(row++, text("description"));
 		grid.add(description, 0, row++, GridPane.REMAINING, GridPane.REMAINING);
 
@@ -177,29 +182,35 @@ public class AddNewManga extends Application {
 				
 				ps.execute();
 				
-				if(Checker.isNotEmptyTrimmed(url.getText())) {
-					String s = url.getText().trim();
-					int end = s.length();
-					if(s.charAt(s.length() - 1) == '/')
-						end--;
-					
-					int n = s.lastIndexOf('/', end - 1);
-					if(n >= 0)
-						s = s.substring(n+1, end);
-
-					try(PreparedStatement p = samrock.prepareStatement(JDBCHelper.insertSQL(MangaUrlsMeta.TABLE_NAME, MangaUrlsMeta.MANGA_ID, MangaUrlsMeta.MANGAHERE))) {
+				String mangafox = tranform(this.url.getText());
+				String mangakakalot = tranform(this.mangakakalot.getText());
+				
+				if(mangafox != null || mangakakalot != null ) {
+					try(PreparedStatement p = samrock.prepareStatement(JDBCHelper.insertSQL(MangaUrlsMeta.TABLE_NAME, MangaUrlsMeta.MANGA_ID, MangaUrlsMeta.MANGAHERE, MangaUrlsMeta.MANGAKAKALOT))) {
 						p.setString(1, current_id);
-						p.setString(2, s);
-						
+						set(2, mangafox == null ? null : MangaUrlsUtils.name(mangafox), p);
+						set(3, mangakakalot, p);
 						p.execute();
 					}
 				}
+				
 				samrock.commit();
 			}
 			FxPopupShop.showHidePopup("saved: "+current_id, 2500);
 			return null;
 		});
 		not_saveable.set(true);
+	}
+
+	private String tranform(String s) {
+		return Checker.isEmptyTrimmed(s) ? null : s.trim();
+	}
+
+	private void set(int index, String value, PreparedStatement p) throws SQLException {
+		if(value != null)
+			p.setString(index, value);
+		else
+			p.setNull(index, Types.VARCHAR);
 	}
 
 	private StringBuilder select_sql;

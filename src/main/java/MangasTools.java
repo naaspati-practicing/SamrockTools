@@ -70,7 +70,7 @@ import org.sqlite.JDBC;
 
 import sam.config.Session;
 import sam.console.ANSI;
-import sam.io.serilizers.StringWriter2;
+import sam.io.serilizers.StringIOUtils;
 import sam.manga.samrock.Renamer;
 import sam.manga.samrock.SamrockDB;
 import sam.manga.samrock.chapters.ChaptersMeta;
@@ -306,7 +306,7 @@ public class MangasTools  {
 			return false;
 		}
 
-		StringWriter2.appendText(Utils.APP_DATA.resolve("-amf.log"), maxOldTime+"\n");
+		StringIOUtils.appendText(maxOldTime+"\n", Utils.APP_DATA.resolve("-amf.log"));
 
 		try (SamrockDB samrock = new SamrockDB();
 				SQLiteDB mangarock = new SQLiteDB(MANGAROCK_INPUT_DB);) {

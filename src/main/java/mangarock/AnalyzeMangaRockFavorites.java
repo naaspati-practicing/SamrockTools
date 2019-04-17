@@ -52,7 +52,7 @@ import javax.swing.border.LineBorder;
 import extras.Manga;
 import sam.config.MyConfig;
 import sam.io.serilizers.IntSerializer;
-import sam.io.serilizers.StringWriter2;
+import sam.io.serilizers.StringIOUtils;
 import sam.manga.mangarock.MangarockDB;
 import sam.manga.samrock.SamrockDB;
 import sam.sql.JDBCHelper;
@@ -250,7 +250,7 @@ public class AnalyzeMangaRockFavorites {
 
 		LocalDate date = NOW.toLocalDate();
 		if(data.stream().noneMatch(t -> t.date.equals(date))) 
-			StringWriter2.appendText(Utils.APP_DATA.resolve("-amf.dat"), date+"\n");
+			StringIOUtils.appendText(date+"\n", Utils.APP_DATA.resolve("-amf.dat"));
 
 		return (int) (selected[0] * Duration.ofDays(1).getSeconds());
 	}
