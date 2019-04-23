@@ -15,6 +15,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 import javafx.application.Application;
@@ -66,6 +68,7 @@ public class AddNewManga extends Application {
 	private MangarockDB mangarock;
 	private SamrockDB samrock;
 	private final BorderPane root = new BorderPane();
+	private List<String> saved  = new ArrayList<>();
 
 	@Override
 	public void start(Stage stage) throws Exception {
@@ -77,6 +80,7 @@ public class AddNewManga extends Application {
 		id.setEditable(true);
 		id.setOnAction(this::load);
 		url.setEditable(true);
+		mangakakalot.setEditable(true);
 
 		int row = 0;
 		Button btn = button("load", this::load, loadDisable());
@@ -95,6 +99,8 @@ public class AddNewManga extends Application {
 		GridPane.setColumnSpan(id, 2);
 		GridPane.setColumnIndex(btn, 3);
 		GridPane.setColumnSpan(rank, 2);
+		GridPane.setColumnSpan(url, GridPane.REMAINING);
+		GridPane.setColumnSpan(mangakakalot, GridPane.REMAINING);
 
 		for (Node n : new Node[]{manga_name, dirname, author, categories}) {
 			GridPane.setColumnSpan(n, GridPane.REMAINING);	
@@ -128,6 +134,9 @@ public class AddNewManga extends Application {
 	}
 	@Override
 	public void stop() throws Exception {
+		if(!saved.isEmpty())
+			System.out.println(String.join(" ", saved));
+		
 		try {
 			if(mangarock != null)
 				mangarock.close();
@@ -141,6 +150,8 @@ public class AddNewManga extends Application {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
+		
 		System.exit(0);
 	}
 	
@@ -200,6 +211,7 @@ public class AddNewManga extends Application {
 			return null;
 		});
 		not_saveable.set(true);
+		saved.add(id.getText());
 	}
 
 	private String tranform(String s) {
@@ -251,6 +263,7 @@ public class AddNewManga extends Application {
 					status.setUserData(b);
 					
 					url.setText(null);
+					mangakakalot.setText(null);
 					not_saveable.set(false);
 				}
 			}
