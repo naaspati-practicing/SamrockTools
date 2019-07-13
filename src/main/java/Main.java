@@ -65,6 +65,7 @@ import samrock.FinalizeMangarockNew;
 import samrock.ResetChapters;
 import urls.ExtractUrls;
 import urls.FillUrls;
+import urls.Urls;
 import utils.Utils;
 
 public class Main  {
@@ -109,6 +110,7 @@ public class Main  {
 
 		boolean remove_repeated_favorites;
 		boolean add_new_manga;
+		boolean urls;
 
 	List<String> mangaIds = new ArrayList<>();
 
@@ -204,7 +206,10 @@ public class Main  {
 		else if(add_new_manga) {
 			Application.launch(AddNewManga.class, new String[0]);
 			exit = false;
-		} 
+		} else if(urls) {
+			Application.launch(Urls.class, mangaIds.toArray(new String[0]));
+			exit = false;
+		}
 		else {
 			System.out.println(red("failed to reconize command: ")+Arrays.toString(args2));
 			return;
@@ -213,7 +218,6 @@ public class Main  {
 			System.out.println("\n"+FINISHED_BANNER);
 			System.exit(0);
 		}
-		
 	}
 	private void printHelp() {
 		String[][] help = {
@@ -244,7 +248,8 @@ public class Main  {
 				{"-cmi, --change-manga-ids", "change mangaIds"},
 				{"-update, --update-with-last-sync", "set samrock.mangas.last_update_time = max(mangarock.favorites.last_sync, samrock.mangas.last_update_time)"},
 				{"-rrf, --remove-repeated-favorites", "remove mangas repeated in favorites"},
-				{"--add-new-manga", "add new manga manually"}
+				{"--add-new-manga", "add new manga manually"},
+				{"-urls", "edit urls"}
 		};
 		
 		System.out.println();
@@ -339,6 +344,7 @@ public class Main  {
 			case "-rrf": this.remove_repeated_favorites = true; break;
 			case "--remove-repeated-favorites": this.remove_repeated_favorites = true; break;
 			case "--add-new-manga": this.add_new_manga = true; break;
+			case "-urls": this.urls = true; break;
 
 			default: mangaIds.add(key); break;
 		}
