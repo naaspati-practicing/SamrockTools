@@ -23,9 +23,11 @@ import javafx.application.Application;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
+import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
@@ -33,15 +35,18 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import sam.fx.alert.FxAlert;
 import sam.fx.helpers.FxBindings;
+import sam.fx.helpers.FxCell;
 import sam.fx.helpers.FxConstants;
 import sam.fx.helpers.FxGridPane;
 import sam.fx.helpers.FxHBox;
 import sam.fx.popup.FxPopupShop;
+import sam.fx.textsearch.FxTextSearch;
 import sam.manga.mangarock.MangarockDB;
 import sam.manga.samrock.Renamer;
 import sam.manga.samrock.SamrockDB;
@@ -74,6 +79,18 @@ public class AddNewManga extends Application {
 	public void start(Stage stage) throws Exception {
 		GridPane grid = gridPane(5);
 		FxAlert.setParent(stage);
+		
+		if(mangarock == null) {
+			mangarock = systemError(MangarockDB::new);
+			select_sql = JDBCHelper.selectSQL(MANGA_TABLE_NAME, AUTHOR, CATEGORIES, NAME, RANK, ID, STATUS, DESCRIPTION)
+					.append(" WHERE _id = ");
+			
+			select_sql_n = select_sql.length() - 1;
+		}
+
+		if(mangarock == null)
+			return;
+		
 		FxPopupShop.setParent(stage);
 
 		description.setEditable(false);
@@ -123,10 +140,50 @@ public class AddNewManga extends Application {
 		grid.setStyle("-fx-font-family:monospace;-fx-padding:5px");
 		root.setCenter(grid);
 		root.setBottom(FxHBox.buttonBox(button("save", this::save, not_saveable)));
+		root.setRight(right());
 
 		stage.setScene(new Scene(root));
 		stage.setTitle("Add new Manga");
 		stage.show();
+	}
+	
+	private static class Temp {
+		final String name, lname;
+		final int id;
+		
+		public Temp(int id, String name) {
+			this.name = name;
+			this.lname = name.toLowerCase();
+			this.id = id;
+		}
+		
+	}
+
+	private Node right() throws SQLException {
+		TextField tf = new TextField();
+		ListView<Temp> list = new ListView<>();
+		VBox box = new VBox(new Text("Search"), tf, list);
+		
+		VBox.setMargin(box.getChildren().get(0), new Insets(5));
+		VBox.setMargin(tf, new Insets(5));
+		
+		list.setCellFactory(FxCell.listCell(f -> f.name));
+		FxTextSearch<Temp> search = new FxTextSearch<>(t -> t.lname, 300, true);
+		
+		List<Temp> all = new ArrayList<>();
+		mangarock.iterate("select _id, name from Manga", rs -> all.add(new Temp(rs.getInt(1), rs.getString(2))));
+		
+		search.setAllData(all);
+		tf.textProperty().addListener((p, o, n) -> search.addSearch(n));
+		search.setOnChange(() -> search.applyFilter(list.getItems()));
+		
+		VBox.setVgrow(list, Priority.ALWAYS);
+		list.setMaxHeight(Double.MAX_VALUE);
+		box.setFillWidth(true);
+		
+		list.getSelectionModel().selectedItemProperty().addListener((p, o, n) -> load(n.id));
+		
+		return box;
 	}
 
 	private ObservableValue<? extends Boolean> loadDisable() {
@@ -180,7 +237,7 @@ public class AddNewManga extends Application {
 		systemError(() -> {
 			try(PreparedStatement ps = samrock.prepareStatement(insert_sql)) {
 				int c = 1;
-				ps.setInt(c++, Integer.parseInt(current_id));
+				ps.setInt(c++, current_id);
 				ps.setString(c++, dirname.getText());
 				ps.setString(c++, manga_name .getText());
 				ps.setString(c++, author.getText());
@@ -198,7 +255,7 @@ public class AddNewManga extends Application {
 				
 				if(mangafox != null || mangakakalot != null ) {
 					try(PreparedStatement p = samrock.prepareStatement(JDBCHelper.insertSQL(MangaUrlsMeta.TABLE_NAME, MangaUrlsMeta.MANGA_ID, MangaUrlsMeta.MANGAHERE, MangaUrlsMeta.MANGAKAKALOT))) {
-						p.setString(1, current_id);
+						p.setInt(1, current_id);
 						set(2, mangafox == null ? null : MangaUrlsUtils.name(mangafox), p);
 						set(3, mangakakalot, p);
 						p.execute();
@@ -227,12 +284,20 @@ public class AddNewManga extends Application {
 
 	private StringBuilder select_sql;
 	private int select_sql_n;
-	private String current_id; 
+	private int current_id;
 	
 	private void load(ActionEvent e) {
-		current_id = this.id.getText();
+		try {
+			load(Integer.parseInt(this.id.getText().trim()));
+		} catch (Exception e2) {
+			FxAlert.showErrorDialog(this.id.getText(), "bad id value", e2);
+		}
+	}
+	
+	private void load(int id) {
+		current_id = id;
 
-		if(mangarock == null){
+		if(mangarock == null) {
 			mangarock = systemError(MangarockDB::new);
 			select_sql = JDBCHelper.selectSQL(MANGA_TABLE_NAME, AUTHOR, CATEGORIES, NAME, RANK, ID, STATUS, DESCRIPTION)
 					.append(" WHERE _id = ");
@@ -243,6 +308,7 @@ public class AddNewManga extends Application {
 		if(mangarock == null)
 			return;
 		
+		this.id.setText(Integer.toString(id));
 		select_sql.setLength(select_sql_n);
 		select_sql.append(current_id).append(';');
 		

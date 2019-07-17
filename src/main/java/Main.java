@@ -18,7 +18,6 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,6 +48,7 @@ import org.sqlite.JDBC;
 
 import javafx.application.Application;
 import mangarock.AnalyzeMangaRockFavorites;
+import mangarock.Grouping;
 import mangarock.RemoveRepeatedFromMangarockFavorites;
 import mangarock.UpdateWithLastSync;
 import sam.config.Session;
@@ -74,7 +74,7 @@ public class Main  {
 	public static final String VERSION = System2.lookup("APP_VERSION");
 	public static final String PROGRAM_NAME = System2.lookup("PROGRAM_NAME");
 
-	public static void main(String[] args) throws URISyntaxException, IOException, InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
+	public static void main(String[] args) throws Exception {
 		new Main(args);
 	}
 
@@ -111,10 +111,11 @@ public class Main  {
 		boolean remove_repeated_favorites;
 		boolean add_new_manga;
 		boolean urls;
+		boolean group;
 
 	List<String> mangaIds = new ArrayList<>();
 
-	public Main(String[] args2) throws URISyntaxException, IOException, InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
+	public Main(String[] args2) throws Exception {
 		parse(args2);
 
 		if(args2.length == 0 || help) {
@@ -209,6 +210,9 @@ public class Main  {
 		} else if(urls) {
 			Application.launch(Urls.class, mangaIds.toArray(new String[0]));
 			exit = false;
+		} else if(group) {
+			new Grouping().call();
+			exit = true;
 		}
 		else {
 			System.out.println(red("failed to reconize command: ")+Arrays.toString(args2));
@@ -249,7 +253,8 @@ public class Main  {
 				{"-update, --update-with-last-sync", "set samrock.mangas.last_update_time = max(mangarock.favorites.last_sync, samrock.mangas.last_update_time)"},
 				{"-rrf, --remove-repeated-favorites", "remove mangas repeated in favorites"},
 				{"--add-new-manga", "add new manga manually"},
-				{"-urls", "edit urls"}
+				{"-urls", "edit urls"},
+				{"-group", "process and move mangarock DownloadTask"}
 		};
 		
 		System.out.println();
@@ -345,6 +350,7 @@ public class Main  {
 			case "--remove-repeated-favorites": this.remove_repeated_favorites = true; break;
 			case "--add-new-manga": this.add_new_manga = true; break;
 			case "-urls": this.urls = true; break;
+			case "-group": this.group = true; break;
 
 			default: mangaIds.add(key); break;
 		}
